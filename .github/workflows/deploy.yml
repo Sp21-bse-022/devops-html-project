@@ -24,7 +24,7 @@ jobs:
 
       - name: Deploy with Docker
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@3.29.245.214 << 'EOF'
+          ssh -o StrictHostKeyChecking=no ubuntu@3.29.245.214  << 'EOF'
             cd /home/ubuntu/devops-html-project
             sudo docker build -t devops-html-project .
             sudo docker stop devops-app || true

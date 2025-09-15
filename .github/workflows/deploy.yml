@@ -1,0 +1,33 @@
+name: Deploy to EC2
+
+on:
+  push:
+    branches:
+      - main   # Runs when you push to main branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.7.0
+        with:
+          ssh-private-key: ${{ secrets.EC2_SSH_KEY }}
+
+      - name: Copy files to EC2
+        run: |
+          scp -o StrictHostKeyChecking=no -r ./ ubuntu@3.29.245.214:/home/ubuntu/devops-html-project
+
+      - name: Deploy with Docker
+        run: |
+          ssh -o StrictHostKeyChecking=no ubuntu@3.29.245.214 << 'EOF'
+            cd /home/ubuntu/devops-html-project
+            sudo docker build -t devops-html-project .
+            sudo docker stop devops-app || true
+            sudo docker rm devops-app || true
+            sudo docker run -d -p 80:80 --name devops-app devops-html-project
+          EOF

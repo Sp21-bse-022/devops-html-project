@@ -22,7 +22,6 @@ jobs:
         run: |
           rsync -avz --exclude='.git' -e "ssh -o StrictHostKeyChecking=no" ./ ubuntu@3.29.245.214:/home/ubuntu/devops-html-project
 
-
       - name: Deploy with Docker and Nginx
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@3.29.245.214 << 'EOF'
@@ -35,26 +34,28 @@ jobs:
               sudo apt-get install -y nginx
             fi
 
-            # Enable and start nginx
+            # Enable nginx
             sudo systemctl enable nginx
-            sudo systemctl start nginx
+            sudo systemctl start nginx || true
 
-            # Copy nginx config from project root to sites-available
+            # Copy nginx config from project root
             sudo cp nginx /etc/nginx/sites-available/devops-html-project
 
-            # Remove existing symlink if exists
+            # Remove existing symlink and create a new one
             sudo rm -f /etc/nginx/sites-enabled/devops-html-project
-
-            # Create new symlink
             sudo ln -s /etc/nginx/sites-available/devops-html-project /etc/nginx/sites-enabled/
 
-            # Test nginx config and reload
+            # Test and reload nginx
             sudo nginx -t
             sudo systemctl reload nginx
 
-            # Docker deployment
+            # Build Docker image
             sudo docker build -t devops-html-project .
+
+            # Stop and remove old container if exists
             sudo docker stop devops-app || true
             sudo docker rm devops-app || true
-            sudo docker run -d -p 80:80 --name devops-app devops-html-project
+
+            # Run Docker container on port 8080 (internal)
+            sudo docker run -d -p 8080:80 --name devops-app devops-html-project
           EOF

@@ -3,7 +3,7 @@ name: Deploy to EC2
 on:
   push:
     branches:
-      - main   # Runs when you push to main branch
+      - main
 
 jobs:
   deploy:
@@ -22,7 +22,7 @@ jobs:
         run: |
           rsync -avz --exclude='.git' -e "ssh -o StrictHostKeyChecking=no" ./ ubuntu@3.29.245.214:/home/ubuntu/devops-html-project
 
-      - name: Deploy with Docker and Nginx
+      - name: Deploy Docker + Nginx
         run: |
           ssh -o StrictHostKeyChecking=no ubuntu@3.29.245.214 << 'EOF'
             set -e
@@ -34,28 +34,37 @@ jobs:
               sudo apt-get install -y nginx
             fi
 
-            # Enable nginx
+            # Stop old nginx service (avoid conflicts)
+            sudo systemctl stop nginx || true
+
+            # Enable nginx on boot
             sudo systemctl enable nginx
-            sudo systemctl start nginx || true
 
-            # Copy nginx config from project root
-            sudo cp nginx /etc/nginx/sites-available/devops-html-project
-
-            # Remove existing symlink and create a new one
-            sudo rm -f /etc/nginx/sites-enabled/devops-html-project
-            sudo ln -s /etc/nginx/sites-available/devops-html-project /etc/nginx/sites-enabled/
-
-            # Test and reload nginx
-            sudo nginx -t
-            sudo systemctl reload nginx
+            # Stop and remove old Docker container
+            sudo docker stop devops-app || true
+            sudo docker rm devops-app || true
 
             # Build Docker image
             sudo docker build -t devops-html-project .
 
-            # Stop and remove old container if exists
-            sudo docker stop devops-app || true
-            sudo docker rm devops-app || true
+            # Run Docker on port 3000
+            sudo docker run -d -p 3000:80 --name devops-app devops-html-project
 
-            # Run Docker container on port 8080 (internal)
-            sudo docker run -d -p 8080:80 --name devops-app devops-html-project
+            # Create Nginx reverse proxy config
+            echo "server {
+              listen 80;
+              server_name _;
+              location / {
+                  proxy_pass http://127.0.0.1:3000;
+                  proxy_set_header Host \$host;
+                  proxy_set_header X-Real-IP \$remote_addr;
+                  proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto \$scheme;
+              }
+            }" | sudo tee /etc/nginx/sites-available/devops-html-project
+
+            # Enable site and reload nginx
+            sudo ln -sf /etc/nginx/sites-available/devops-html-project /etc/nginx/sites-enabled/
+            sudo nginx -t
+            sudo systemctl restart nginx
           EOF

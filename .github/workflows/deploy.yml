@@ -20,7 +20,8 @@ jobs:
 
       - name: Copy files to EC2
         run: |
-          scp -o StrictHostKeyChecking=no -r ./ ubuntu@3.29.245.214:/home/ubuntu/devops-html-project
+          rsync -avz --exclude='.git' -e "ssh -o StrictHostKeyChecking=no" ./ ubuntu@3.29.245.214:/home/ubuntu/devops-html-project
+
 
       - name: Deploy with Docker and Nginx
         run: |

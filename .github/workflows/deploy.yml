@@ -22,10 +22,36 @@ jobs:
         run: |
           scp -o StrictHostKeyChecking=no -r ./ ubuntu@3.29.245.214:/home/ubuntu/devops-html-project
 
-      - name: Deploy with Docker
+      - name: Deploy with Docker and Nginx
         run: |
-          ssh -o StrictHostKeyChecking=no ubuntu@3.29.245.214  << 'EOF'
+          ssh -o StrictHostKeyChecking=no ubuntu@3.29.245.214 << 'EOF'
+            set -e
             cd /home/ubuntu/devops-html-project
+
+            # Install nginx if not installed
+            if ! command -v nginx > /dev/null; then
+              sudo apt-get update -y
+              sudo apt-get install -y nginx
+            fi
+
+            # Enable and start nginx
+            sudo systemctl enable nginx
+            sudo systemctl start nginx
+
+            # Copy nginx config from project root to sites-available
+            sudo cp nginx /etc/nginx/sites-available/devops-html-project
+
+            # Remove existing symlink if exists
+            sudo rm -f /etc/nginx/sites-enabled/devops-html-project
+
+            # Create new symlink
+            sudo ln -s /etc/nginx/sites-available/devops-html-project /etc/nginx/sites-enabled/
+
+            # Test nginx config and reload
+            sudo nginx -t
+            sudo systemctl reload nginx
+
+            # Docker deployment
             sudo docker build -t devops-html-project .
             sudo docker stop devops-app || true
             sudo docker rm devops-app || true

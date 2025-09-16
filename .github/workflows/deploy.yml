@@ -20,6 +20,7 @@ jobs:
 
       - name: Copy files to EC2
         run: |
+          # Use rsync to copy files excluding .git folder
           rsync -avz --exclude='.git' -e "ssh -o StrictHostKeyChecking=no" ./ ubuntu@3.29.245.214:/home/ubuntu/devops-html-project
 
       - name: Deploy Docker + Nginx
@@ -36,21 +37,19 @@ jobs:
 
             # Stop old nginx service (avoid conflicts)
             sudo systemctl stop nginx || true
-
-            # Enable nginx on boot
             sudo systemctl enable nginx
 
             # Stop and remove old Docker container
             sudo docker stop devops-app || true
             sudo docker rm devops-app || true
 
-            # Build Docker image
-            sudo docker build -t devops-html-project .
+            # Rebuild Docker image with no cache to include latest changes
+            sudo docker build --no-cache -t devops-html-project .
 
-            # Run Docker on port 3000
+            # Run Docker container on port 3000
             sudo docker run -d -p 3000:80 --name devops-app devops-html-project
 
-            # Create Nginx reverse proxy config
+            # Create Nginx reverse proxy configuration
             echo "server {
               listen 80;
               server_name _;
